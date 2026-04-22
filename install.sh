@@ -41,6 +41,33 @@ OS="$(uname -s)"
 mkdir -p "$BIN_DIR" "$ZSH_PLUGIN_DIR" "$TMUX_PLUGIN_DIR"
 export PATH="$BIN_DIR:$PATH"
 
+# ── System package installer (requires sudo) ───────────────
+# Installs a package using whichever package manager is present.
+# Prompts for sudo password if not cached.
+pkg_install() {
+  local pkg="$1"
+  info "installing system package: $pkg (will prompt for sudo if needed)"
+  if   command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update -qq && sudo apt-get install -y "$pkg"
+  elif command -v dnf     >/dev/null 2>&1; then sudo dnf install -y "$pkg"
+  elif command -v pacman  >/dev/null 2>&1; then sudo pacman -S --noconfirm "$pkg"
+  elif command -v apk     >/dev/null 2>&1; then sudo apk add "$pkg"
+  elif command -v zypper  >/dev/null 2>&1; then sudo zypper install -y "$pkg"
+  else fail "no supported package manager found (apt/dnf/pacman/apk/zypper) — install '$pkg' manually and re-run"
+  fi
+}
+
+ensure_pkg() {
+  local cmd="$1" pkg="${2:-$1}"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    skip "$cmd already installed ($(command -v "$cmd"))"
+    return
+  fi
+  pkg_install "$pkg"
+  command -v "$cmd" >/dev/null 2>&1 || fail "$cmd still not found after installing $pkg"
+  ok "installed $cmd"
+}
+
 # ── Helpers ─────────────────────────────────────────────────
 gh_latest_tag() {
   # $1 = owner/repo
@@ -153,6 +180,11 @@ install_fastfetch() {
 
 # ── Run ─────────────────────────────────────────────────────
 printf "\n%s%s🍧 Ricing %s%s\n\n" "${BOLD}" "${CYAN}" "${USER}${RST}" "${BOLD}${RST}"
+
+info "system packages (sudo may be required)"
+ensure_pkg zsh
+ensure_pkg tmux
+echo
 
 info "binaries → $BIN_DIR"
 install_bin starship  install_starship

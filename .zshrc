@@ -74,6 +74,9 @@ ZSH_PLUGINS="$HOME/.zsh/plugins"
 [[ -f "$ZSH_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] && source "$ZSH_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh"
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#6c7086"
+# Ctrl+Space accepts the current autosuggestion.
+# Terminals send NUL (^@) for Ctrl+Space; '^ ' is zsh's notation for it.
+bindkey '^ ' autosuggest-accept
 
 [[ -f "$ZSH_PLUGINS/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "$ZSH_PLUGINS/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
