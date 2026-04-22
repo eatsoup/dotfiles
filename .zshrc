@@ -61,28 +61,19 @@ zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'eza -1 --color=always --ico
 zstyle ':fzf-tab:*' use-fzf-default-opts yes
 zstyle ':fzf-tab:*' switch-group '<' '>'
 
-# ── Theme ───────────────────────────────────────────────────
-# Loads palette + FZF_DEFAULT_OPTS + BAT_THEME + syntax/autosuggest colors.
-# Switch with the `theme` command (defined at the end of this file).
-export DOTFILES_DIR="${DOTFILES_DIR:-$HOME/dotfiles}"
-_theme_state="$HOME/.config/dotfiles/theme"
-if [[ -r "$_theme_state" ]]; then
-  _current_theme="$(<"$_theme_state")"
-else
-  _current_theme="catppuccin-mocha"
-fi
-[[ -r "$DOTFILES_DIR/themes/$_current_theme/shell.zsh" ]] && \
-  source "$DOTFILES_DIR/themes/$_current_theme/shell.zsh"
-unset _theme_state _current_theme
-
 # ── Plugins ─────────────────────────────────────────────────
 ZSH_PLUGINS="$HOME/.zsh/plugins"
 
 # fzf-tab must come BEFORE zsh-syntax-highlighting, AFTER compinit
 [[ -f "$ZSH_PLUGINS/fzf-tab/fzf-tab.plugin.zsh" ]] && source "$ZSH_PLUGINS/fzf-tab/fzf-tab.plugin.zsh"
 
+# Catppuccin Mocha colours for zsh-syntax-highlighting
+[[ -f "$ZSH_PLUGINS/catppuccin-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh" ]] && \
+  source "$ZSH_PLUGINS/catppuccin-syntax-highlighting/themes/catppuccin_mocha-zsh-syntax-highlighting.zsh"
+
 [[ -f "$ZSH_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] && source "$ZSH_PLUGINS/zsh-autosuggestions/zsh-autosuggestions.zsh"
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#6c7086"
 # Ctrl+Space accepts the current autosuggestion.
 # Terminals send NUL (^@) for Ctrl+Space; '^ ' is zsh's notation for it.
 bindkey '^ ' autosuggest-accept
@@ -91,6 +82,15 @@ bindkey '^ ' autosuggest-accept
 
 # ── fzf ─────────────────────────────────────────────────────
 if command -v fzf >/dev/null 2>&1; then
+  # Catppuccin Mocha palette for fzf
+  export FZF_DEFAULT_OPTS="\
+--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 \
+--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc \
+--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 \
+--color=selected-bg:#45475a \
+--color=border:#585b70,label:#cdd6f4 \
+--height 60% --layout=reverse --border=rounded --margin=1 --padding=1 \
+--prompt='  ' --pointer='' --marker='󰄲'"
   source <(fzf --zsh) 2>/dev/null || true
 fi
 
@@ -135,51 +135,6 @@ alias gd='git diff'
 
 # ── Starship prompt ─────────────────────────────────────────
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
-
-# ── Theme switcher ──────────────────────────────────────────
-# Usage:
-#   theme            # list available themes + show current
-#   theme <name>     # switch (persists across sessions)
-theme() {
-  emulate -L zsh
-  local themes_dir="${DOTFILES_DIR:-$HOME/dotfiles}/themes"
-  local state_dir="$HOME/.config/dotfiles"
-  local state_file="$state_dir/theme"
-
-  if [[ $# -eq 0 ]]; then
-    local current="(unset)"
-    [[ -r "$state_file" ]] && current="$(<"$state_file")"
-    print -P "%F{cyan}current:%f $current"
-    print -P "%F{cyan}available:%f"
-    for t in "$themes_dir"/*(/N); do
-      print "  ${t:t}"
-    done
-    return 0
-  fi
-
-  local name="$1"
-  if [[ ! -d "$themes_dir/$name" ]]; then
-    print -u2 "theme: unknown '$name' — run \`theme\` to list available themes"
-    return 1
-  fi
-
-  mkdir -p "$state_dir" "$HOME/.config/tmux"
-  print -- "$name" > "$state_file"
-  ln -sfn "$themes_dir/$name/starship.toml" "$HOME/.config/starship.toml"
-  ln -sfn "$themes_dir/$name/tmux.conf"     "$HOME/.config/tmux/theme.conf"
-
-  # Live-update the current shell (these vars are read at use-time).
-  [[ -r "$themes_dir/$name/shell.zsh" ]] && source "$themes_dir/$name/shell.zsh"
-
-  # Reload tmux if we're inside it.
-  if [[ -n "$TMUX" ]] && command -v tmux >/dev/null 2>&1; then
-    tmux source "$HOME/.config/tmux/tmux.conf" >/dev/null 2>&1
-    tmux display-message "theme: $name" >/dev/null 2>&1
-  fi
-
-  print -P "%F{green}✓%f theme switched to %F{cyan}$name%f"
-}
-compdef '_path_files -W "${DOTFILES_DIR:-$HOME/dotfiles}/themes" -/' theme 2>/dev/null || true
 
 # ── Greeter + auto-tmux (interactive only) ──────────────────
 if [[ $- == *i* ]]; then
