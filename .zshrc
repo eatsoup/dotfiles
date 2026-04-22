@@ -10,7 +10,7 @@ export PATH="$PATH:/usr/local/go/bin"
 # ── Environment ─────────────────────────────────────────────
 export EDITOR="${EDITOR:-vim}"
 export VISUAL="$EDITOR"
-export LESS="-R --use-color -Dd+r -Du+b"
+export LESS="-R --use-color"
 export MANPAGER="less -R --use-color -Dd+r -Du+b"
 export LESSHISTFILE="-"
 export FASTFETCH_CONFIG="$HOME/.config/fastfetch/config.jsonc"
