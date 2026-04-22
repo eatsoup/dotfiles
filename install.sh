@@ -44,8 +44,12 @@ export PATH="$BIN_DIR:$PATH"
 # ── Helpers ─────────────────────────────────────────────────
 gh_latest_tag() {
   # $1 = owner/repo
-  curl -fsSL "https://api.github.com/repos/$1/releases/latest" \
-    | grep -m1 '"tag_name"' | cut -d '"' -f 4
+  # Buffer the full response before parsing so grep -m1 can't SIGPIPE curl
+  # (which shows as "curl: (23) Failure writing output to destination").
+  local json
+  json="$(curl -fsSL "https://api.github.com/repos/$1/releases/latest")" \
+    || { warn "failed to fetch latest release for $1"; return 1; }
+  printf '%s\n' "$json" | grep -m1 '"tag_name"' | cut -d '"' -f 4
 }
 
 # Install a binary if missing. Uses a download callback so each tool can
