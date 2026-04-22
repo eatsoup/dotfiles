@@ -41,18 +41,30 @@ OS="$(uname -s)"
 mkdir -p "$BIN_DIR" "$ZSH_PLUGIN_DIR" "$TMUX_PLUGIN_DIR"
 export PATH="$BIN_DIR:$PATH"
 
-# ── System package installer (requires sudo) ───────────────
-# Installs a package using whichever package manager is present.
-# Prompts for sudo password if not cached.
+# ── Privilege helper ───────────────────────────────────────
+# Empty when already root (common in Docker); 'sudo' otherwise.
+# If we're not root and sudo isn't installed, pkg_install will error cleanly.
+if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+  SUDO=""
+elif command -v sudo >/dev/null 2>&1; then
+  SUDO="sudo"
+else
+  SUDO=""   # flag as unavailable; handled in pkg_install
+fi
+
+# ── System package installer (may require sudo) ────────────
 pkg_install() {
   local pkg="$1"
-  info "installing system package: $pkg (will prompt for sudo if needed)"
+  if [[ "${EUID:-$(id -u)}" -ne 0 && -z "$SUDO" ]]; then
+    fail "need root or sudo to install '$pkg' — install it manually and re-run"
+  fi
+  info "installing system package: $pkg${SUDO:+ (will prompt for sudo if needed)}"
   if   command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update -qq && sudo apt-get install -y "$pkg"
-  elif command -v dnf     >/dev/null 2>&1; then sudo dnf install -y "$pkg"
-  elif command -v pacman  >/dev/null 2>&1; then sudo pacman -S --noconfirm "$pkg"
-  elif command -v apk     >/dev/null 2>&1; then sudo apk add "$pkg"
-  elif command -v zypper  >/dev/null 2>&1; then sudo zypper install -y "$pkg"
+    $SUDO apt-get update -qq && $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg"
+  elif command -v dnf     >/dev/null 2>&1; then $SUDO dnf install -y "$pkg"
+  elif command -v pacman  >/dev/null 2>&1; then $SUDO pacman -S --noconfirm "$pkg"
+  elif command -v apk     >/dev/null 2>&1; then $SUDO apk add "$pkg"
+  elif command -v zypper  >/dev/null 2>&1; then $SUDO zypper install -y "$pkg"
   else fail "no supported package manager found (apt/dnf/pacman/apk/zypper) — install '$pkg' manually and re-run"
   fi
 }
@@ -179,13 +191,25 @@ install_fastfetch() {
 }
 
 # ── Run ─────────────────────────────────────────────────────
-printf "\n%s%s🍧 Ricing %s%s\n\n" "${BOLD}" "${CYAN}" "${USER}${RST}" "${BOLD}${RST}"
+printf "\n%s%s🍧 Ricing %s%s (dotfiles: %s)\n\n" \
+  "${BOLD}" "${CYAN}" "${USER:-$(whoami)}" "${RST}" "$DOTFILES_DIR"
 
-info "system packages (sudo may be required)"
+# 1. Symlinks FIRST — the most important step. If anything downstream fails,
+#    you at least still have a working .zshrc pointing into the repo.
+info "symlinking config files (backup → $BACKUP_DIR if needed)"
+link_file "$DOTFILES_DIR/.zshrc"                         "$HOME/.zshrc"
+link_file "$DOTFILES_DIR/.config/starship.toml"          "$HOME/.config/starship.toml"
+link_file "$DOTFILES_DIR/.config/tmux/tmux.conf"         "$HOME/.config/tmux/tmux.conf"
+link_file "$DOTFILES_DIR/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+echo
+
+# 2. System packages (zsh, tmux).
+info "system packages"
 ensure_pkg zsh
 ensure_pkg tmux
 echo
 
+# 3. User-space binaries.
 info "binaries → $BIN_DIR"
 install_bin starship  install_starship
 install_bin zoxide    install_zoxide
@@ -195,6 +219,7 @@ install_bin fzf       install_fzf
 install_bin fastfetch install_fastfetch
 echo
 
+# 4. Zsh plugins.
 info "zsh plugins → $ZSH_PLUGIN_DIR"
 clone_repo https://github.com/zsh-users/zsh-autosuggestions     "$ZSH_PLUGIN_DIR/zsh-autosuggestions"
 clone_repo https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_PLUGIN_DIR/zsh-syntax-highlighting"
@@ -203,30 +228,35 @@ clone_repo https://github.com/zsh-users/zsh-completions         "$ZSH_PLUGIN_DIR
 clone_repo https://github.com/catppuccin/zsh-syntax-highlighting "$ZSH_PLUGIN_DIR/catppuccin-syntax-highlighting"
 echo
 
+# 5. Tmux plugins + TPM.
 info "tmux plugins → $TMUX_PLUGIN_DIR"
 clone_repo https://github.com/tmux-plugins/tpm "$TMUX_PLUGIN_DIR/tpm"
 clone_repo https://github.com/catppuccin/tmux  "$TMUX_PLUGIN_DIR/catppuccin/tmux" v2.1.3
-echo
-
-info "symlinking config files (backup → $BACKUP_DIR if needed)"
-link_file "$DOTFILES_DIR/.zshrc"                        "$HOME/.zshrc"
-link_file "$DOTFILES_DIR/.config/starship.toml"         "$HOME/.config/starship.toml"
-link_file "$DOTFILES_DIR/.config/tmux/tmux.conf"        "$HOME/.config/tmux/tmux.conf"
-link_file "$DOTFILES_DIR/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-echo
-
-info "installing tmux plugins via TPM"
 if [[ -x "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" ]]; then
-  "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" >/dev/null || warn "TPM install reported issues"
-  ok "tmux plugins installed"
-else
-  warn "TPM binary missing — skipping"
+  "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" >/dev/null 2>&1 || warn "TPM install reported issues"
+  ok "tmux plugins installed via TPM"
 fi
+echo
+
+# 6. Verify the symlinks actually point where we expect.
+info "verifying symlinks"
+verify_link() {
+  local dst="$1" want="$2"
+  if [[ -L "$dst" && "$(readlink -f "$dst")" == "$(readlink -f "$want")" ]]; then
+    ok "$dst → $want"
+  else
+    warn "$dst does NOT point to $want (got: $(readlink "$dst" 2>/dev/null || echo 'missing'))"
+  fi
+}
+verify_link "$HOME/.zshrc"                         "$DOTFILES_DIR/.zshrc"
+verify_link "$HOME/.config/starship.toml"          "$DOTFILES_DIR/.config/starship.toml"
+verify_link "$HOME/.config/tmux/tmux.conf"         "$DOTFILES_DIR/.config/tmux/tmux.conf"
+verify_link "$HOME/.config/fastfetch/config.jsonc" "$DOTFILES_DIR/.config/fastfetch/config.jsonc"
 echo
 
 # ── Optional: set zsh as default shell ──────────────────────
 if [[ "${SHELL:-}" != *zsh ]] && command -v zsh >/dev/null 2>&1; then
-  warn "current login shell is $SHELL"
+  warn "current login shell is ${SHELL:-unknown}"
   printf "   run: %schsh -s \"\$(command -v zsh)\"%s to switch to zsh\n" "${BOLD}" "${RST}"
 fi
 
