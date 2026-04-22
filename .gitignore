@@ -1,0 +1,11 @@
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local-only overrides (create to extend without editing tracked files)
+.zshrc.local
+.config/starship.local.toml
+
+# Nothing else to ignore — everything tracked is config we own.
