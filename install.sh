@@ -198,24 +198,9 @@ printf "\n%s%s🍧 Ricing %s%s (dotfiles: %s)\n\n" \
 #    you at least still have a working .zshrc pointing into the repo.
 info "symlinking config files (backup → $BACKUP_DIR if needed)"
 link_file "$DOTFILES_DIR/.zshrc"                         "$HOME/.zshrc"
+link_file "$DOTFILES_DIR/.config/starship.toml"          "$HOME/.config/starship.toml"
 link_file "$DOTFILES_DIR/.config/tmux/tmux.conf"         "$HOME/.config/tmux/tmux.conf"
 link_file "$DOTFILES_DIR/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
-
-# Theme: read the persisted choice (or default), then point starship/tmux-theme
-# symlinks at themes/<name>/.  The `theme` zsh command re-points these later.
-DEFAULT_THEME="catppuccin-mocha"
-THEME_STATE_FILE="$HOME/.config/dotfiles/theme"
-mkdir -p "$(dirname "$THEME_STATE_FILE")"
-if [[ -r "$THEME_STATE_FILE" ]]; then
-  CURRENT_THEME="$(<"$THEME_STATE_FILE")"
-  [[ -d "$DOTFILES_DIR/themes/$CURRENT_THEME" ]] || CURRENT_THEME="$DEFAULT_THEME"
-else
-  CURRENT_THEME="$DEFAULT_THEME"
-  printf '%s\n' "$CURRENT_THEME" > "$THEME_STATE_FILE"
-fi
-link_file "$DOTFILES_DIR/themes/$CURRENT_THEME/starship.toml" "$HOME/.config/starship.toml"
-link_file "$DOTFILES_DIR/themes/$CURRENT_THEME/tmux.conf"     "$HOME/.config/tmux/theme.conf"
-ok "active theme: $CURRENT_THEME"
 echo
 
 # 2. System packages (zsh, tmux).
@@ -240,11 +225,13 @@ clone_repo https://github.com/zsh-users/zsh-autosuggestions     "$ZSH_PLUGIN_DIR
 clone_repo https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_PLUGIN_DIR/zsh-syntax-highlighting"
 clone_repo https://github.com/Aloxaf/fzf-tab                    "$ZSH_PLUGIN_DIR/fzf-tab"
 clone_repo https://github.com/zsh-users/zsh-completions         "$ZSH_PLUGIN_DIR/zsh-completions"
+clone_repo https://github.com/catppuccin/zsh-syntax-highlighting "$ZSH_PLUGIN_DIR/catppuccin-syntax-highlighting"
 echo
 
 # 5. Tmux plugins + TPM.
 info "tmux plugins → $TMUX_PLUGIN_DIR"
 clone_repo https://github.com/tmux-plugins/tpm "$TMUX_PLUGIN_DIR/tpm"
+clone_repo https://github.com/catppuccin/tmux  "$TMUX_PLUGIN_DIR/catppuccin/tmux" v2.1.3
 if [[ -x "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" ]]; then
   "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" >/dev/null 2>&1 || warn "TPM install reported issues"
   ok "tmux plugins installed via TPM"
@@ -262,9 +249,8 @@ verify_link() {
   fi
 }
 verify_link "$HOME/.zshrc"                         "$DOTFILES_DIR/.zshrc"
-verify_link "$HOME/.config/starship.toml"          "$DOTFILES_DIR/themes/$CURRENT_THEME/starship.toml"
+verify_link "$HOME/.config/starship.toml"          "$DOTFILES_DIR/.config/starship.toml"
 verify_link "$HOME/.config/tmux/tmux.conf"         "$DOTFILES_DIR/.config/tmux/tmux.conf"
-verify_link "$HOME/.config/tmux/theme.conf"        "$DOTFILES_DIR/themes/$CURRENT_THEME/tmux.conf"
 verify_link "$HOME/.config/fastfetch/config.jsonc" "$DOTFILES_DIR/.config/fastfetch/config.jsonc"
 echo
 
