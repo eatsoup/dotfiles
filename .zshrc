@@ -113,27 +113,7 @@ if command -v eza >/dev/null 2>&1; then
 fi
 command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never --style=plain' && alias catp='bat'
 alias python='python3'
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
 alias grep='grep --color=auto'
-alias ip='ip -c=auto'
-alias df='df -h'
-alias du='du -h'
-alias free='free -h'
-alias mkdir='mkdir -pv'
-alias h='history'
-alias reload='exec zsh'
-alias rice='fastfetch'
-
-# Git shortcuts
-alias g='git'
-alias gs='git status -sb'
-alias gl='git log --oneline --graph --decorate --all'
-alias ga='git add'
-alias gc='git commit'
-alias gp='git push'
-alias gd='git diff'
 
 # ── Starship prompt ─────────────────────────────────────────
 command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
