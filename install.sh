@@ -101,12 +101,15 @@ ensure_pkg() {
 # ── Helpers ─────────────────────────────────────────────────
 gh_latest_tag() {
   # $1 = owner/repo
-  # Buffer the full response before parsing so grep -m1 can't SIGPIPE curl
-  # (which shows as "curl: (23) Failure writing output to destination").
+  # Parse "tag_name" via bash regex on the buffered response — no pipeline,
+  # so no SIGPIPE risk when the JSON exceeds the pipe buffer (fastfetch's
+  # release payload is ~50KB and triggered exit 141 in a grep -m1 | cut setup).
   local json
   json="$(curl -fsSL "https://api.github.com/repos/$1/releases/latest")" \
     || { warn "failed to fetch latest release for $1"; return 1; }
-  printf '%s\n' "$json" | grep -m1 '"tag_name"' | cut -d '"' -f 4
+  [[ "$json" =~ \"tag_name\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] \
+    || { warn "no tag_name in response for $1"; return 1; }
+  printf '%s\n' "${BASH_REMATCH[1]}"
 }
 
 # Install a binary if missing. Uses a download callback so each tool can
