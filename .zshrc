@@ -3,6 +3,7 @@
 # ════════════════════════════════════════════════════════════
 
 # ── PATH ────────────────────────────────────────────────────
+export DOTFILES_DIR=$HOME/git/dotfiles
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.deno/bin:$PATH"
 export PATH="$PATH:/usr/local/go/bin"
@@ -14,6 +15,7 @@ export LESS="-R --use-color"
 export MANPAGER="less -R --use-color -Dd+r -Du+b"
 export LESSHISTFILE="-"
 export FASTFETCH_CONFIG="$HOME/.config/fastfetch/config.jsonc"
+export XDG_CONFIG_HOME="$HOME/.config"
 
 # ── History ─────────────────────────────────────────────────
 HISTFILE="$HOME/.zsh_history"
@@ -76,6 +78,7 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#6c7086"
 # Ctrl+Space accepts the current autosuggestion.
 # Terminals send NUL (^@) for Ctrl+Space; '^ ' is zsh's notation for it.
 bindkey '^ ' autosuggest-accept
+bindkey '^[.' insert-last-word
 
 [[ -f "$ZSH_PLUGINS/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && source "$ZSH_PLUGINS/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 
@@ -153,3 +156,27 @@ if [[ $- == *i* ]]; then
     fi
   fi
 fi
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+[[ -s $HOME/.autojump/etc/profile.d/autojump.sh ]] && source $HOME/.autojump/etc/profile.d/autojump.sh
+
+autoload -U compinit && compinit -u
+eval "$(direnv hook zsh)"
+
+if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+
+eval $(thefuck --alias)
+
+export GOPROXY=direct
+
+alias vi=nvim
+alias vim=nvim
+alias k=kubectl
+source <(kubectl completion zsh)
+
+# Load custom config
+test -f $DOTFILES_DIR/custom.zsh && source $DOTFILES_DIR/custom.zsh
+

@@ -8,4 +8,5 @@
 .zshrc.local
 .config/starship.local.toml
 
-# Nothing else to ignore — everything tracked is config we own.
+# Custom config
+custom.zsh
