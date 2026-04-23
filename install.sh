@@ -204,6 +204,15 @@ install_fzf() {
   install -m 0755 fzf "$BIN_DIR/fzf"
 }
 
+install_pay_respects() {
+  local tag; tag="$(gh_latest_tag iffse/pay-respects)"
+  local vn="${tag#v}"
+  curl -fsSL -o pr.tar.zst \
+    "https://github.com/iffse/pay-respects/releases/download/${tag}/pay-respects-${vn}-x86_64-unknown-linux-musl.tar.zst"
+  tar --zstd -xf pr.tar.zst
+  install -m 0755 pay-respects "$BIN_DIR/pay-respects"
+}
+
 install_fastfetch() {
   # Download to a file rather than piping into `tar xz`. The release tarball is
   # ~5 MB; `tar` (via its gzip inflater) regularly closes stdin the instant it
@@ -235,17 +244,18 @@ info "system packages"
 ensure_pkg zsh
 ensure_pkg tmux
 ensure_pkg direnv
-ensure_pkg thefuck
+ensure_pkg zstd            # pay-respects ships .tar.zst archives
 echo
 
 # 3. User-space binaries.
 info "binaries → $BIN_DIR"
-install_bin starship  install_starship
-install_bin zoxide    install_zoxide
-install_bin eza       install_eza
-install_bin bat       install_bat
-install_bin fzf       install_fzf
-install_bin fastfetch install_fastfetch
+install_bin starship     install_starship
+install_bin zoxide       install_zoxide
+install_bin eza          install_eza
+install_bin bat          install_bat
+install_bin fzf          install_fzf
+install_bin fastfetch    install_fastfetch
+install_bin pay-respects install_pay_respects
 echo
 
 # 4. Zsh plugins.
