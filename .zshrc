@@ -128,8 +128,9 @@ if [[ $- == *i* ]]; then
 
   # Auto-launch tmux: attach to existing "main" session or create it.
   # Skipped inside VSCode integrated terminal, Claude Code, non-TTY shells,
+  # SSH sessions (avoid nested tmux — start it manually if you want it),
   # and when TMUX/NO_TMUX are already set.
-  if [[ -z "$TMUX" && -z "$NO_TMUX" && -z "$VSCODE_INJECTION" && -z "$CLAUDECODE" \
+  if [[ -z "$TMUX" && -z "$NO_TMUX" && -z "$SSH_TTY" && -z "$VSCODE_INJECTION" && -z "$CLAUDECODE" \
         && "$TERM_PROGRAM" != "vscode" && -t 0 && -t 1 ]]; then
     if command -v tmux >/dev/null 2>&1; then
       tmux attach -t main 2>/dev/null || exec tmux new -s main
