@@ -4,7 +4,7 @@
 #   Idempotent: safe to re-run.
 # ════════════════════════════════════════════════════════════
 
-set -euo pipefail
+set -Eeuo pipefail
 
 # ── Colour helpers ──────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -18,6 +18,24 @@ ok()    { printf "%s ✓ %s%s\n"        "${GREEN}" "$*" "${RST}"; }
 warn()  { printf "%s ! %s%s\n"        "${YELLOW}" "$*" "${RST}"; }
 fail()  { printf "%s ✗ %s%s\n" >&2    "${RED}"   "$*" "${RST}"; exit 1; }
 skip()  { printf "   %s· %s%s\n"      "${DIM}"   "$*" "${RST}"; }
+
+# ── Error trap ──────────────────────────────────────────────
+# Without this, `set -e` aborts silently — the user just sees the script stop.
+on_error() {
+  local rc=$?
+  local line="${BASH_LINENO[0]:-?}"
+  local cmd="${BASH_COMMAND:-?}"
+  printf "\n%s✗ install.sh failed%s\n" >&2 "${RED}${BOLD}" "${RST}"
+  printf "%s   exit code: %s%s\n"      >&2 "${RED}" "$rc"   "${RST}"
+  printf "%s   at line:   %s%s\n"      >&2 "${RED}" "$line" "${RST}"
+  printf "%s   command:   %s%s\n"      >&2 "${RED}" "$cmd"  "${RST}"
+  case "$rc" in
+    141) printf "%s   hint:      exit 141 = SIGPIPE — a pipeline reader (e.g. tar) closed before the writer (e.g. curl) finished%s\n" \
+           >&2 "${YELLOW}" "${RST}" ;;
+  esac
+  exit "$rc"
+}
+trap on_error ERR
 
 # ── Paths ───────────────────────────────────────────────────
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -184,9 +202,15 @@ install_fzf() {
 }
 
 install_fastfetch() {
+  # Download to a file rather than piping into `tar xz`. The release tarball is
+  # ~5 MB; `tar` (via its gzip inflater) regularly closes stdin the instant it
+  # hits the end of the gzip stream, while `curl` still has buffered bytes to
+  # flush — the next write then gets SIGPIPE and curl exits 141. Writing to a
+  # file sidesteps the race entirely.
   local tag; tag="$(gh_latest_tag fastfetch-cli/fastfetch)"
-  curl -fsSL "https://github.com/fastfetch-cli/fastfetch/releases/download/${tag}/fastfetch-linux-amd64.tar.gz" \
-    | tar xz
+  curl -fsSL -o fastfetch.tar.gz \
+    "https://github.com/fastfetch-cli/fastfetch/releases/download/${tag}/fastfetch-linux-amd64.tar.gz"
+  tar xzf fastfetch.tar.gz
   install -m 0755 fastfetch-linux-amd64/usr/bin/fastfetch "$BIN_DIR/fastfetch"
 }
 
