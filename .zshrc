@@ -155,7 +155,7 @@ export GOPROXY=direct
 alias vi=nvim
 alias vim=nvim
 alias k=kubectl
-source <(kubectl completion zsh)
+command -v kubectl >/dev/null 2>&1 && source <(kubectl completion zsh)
 
 # Load custom config
 test -f $DOTFILES_DIR/custom.zsh && source $DOTFILES_DIR/custom.zsh

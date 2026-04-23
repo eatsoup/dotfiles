@@ -207,6 +207,8 @@ echo
 info "system packages"
 ensure_pkg zsh
 ensure_pkg tmux
+ensure_pkg direnv
+ensure_pkg thefuck
 echo
 
 # 3. User-space binaries.
