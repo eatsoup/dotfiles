@@ -40,6 +40,7 @@ trap on_error ERR
 # ── Paths ───────────────────────────────────────────────────
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$HOME/.local/bin"
+OPT_DIR="$HOME/.local/opt"
 ZSH_PLUGIN_DIR="$HOME/.zsh/plugins"
 TMUX_PLUGIN_DIR="$HOME/.config/tmux/plugins"
 BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
@@ -56,7 +57,7 @@ OS="$(uname -s)"
 [[ "$OS" == "Linux" ]]         || fail "this installer targets Linux (got: $OS)"
 [[ "$ARCH" == "x86_64" ]]      || fail "this installer targets x86_64 (got: $ARCH)"
 
-mkdir -p "$BIN_DIR" "$ZSH_PLUGIN_DIR" "$TMUX_PLUGIN_DIR"
+mkdir -p "$BIN_DIR" "$OPT_DIR" "$ZSH_PLUGIN_DIR" "$TMUX_PLUGIN_DIR"
 export PATH="$BIN_DIR:$PATH"
 
 # ── Privilege helper ───────────────────────────────────────
@@ -226,6 +227,60 @@ install_fastfetch() {
   install -m 0755 fastfetch-linux-amd64/usr/bin/fastfetch "$BIN_DIR/fastfetch"
 }
 
+# ── Tree-style installers (multi-file tools: $OPT_DIR/$name + symlinks) ─────
+# install_bin assumes a single extracted binary — neovim and node ship full
+# trees (bin/, lib/, share/), so these manage extraction and symlinks directly.
+
+# xz ships as `xz-utils` on apt, `xz` elsewhere — ensure_pkg can't express that.
+ensure_xz() {
+  command -v xz >/dev/null 2>&1 && return
+  if command -v apt-get >/dev/null 2>&1; then pkg_install xz-utils
+  else                                         pkg_install xz
+  fi
+  command -v xz >/dev/null 2>&1 || fail "xz still not found after install"
+}
+
+install_neovim() {
+  local dest="$OPT_DIR/nvim-linux-x86_64"
+  if [[ -L "$BIN_DIR/nvim" && -x "$dest/bin/nvim" ]]; then
+    skip "nvim already installed ($dest)"
+    return
+  fi
+  info "installing neovim (github release)"
+  local tmp; tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/nvim.tar.gz" \
+    "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
+  rm -rf "$dest"
+  tar -C "$OPT_DIR" -xzf "$tmp/nvim.tar.gz"
+  rm -rf "$tmp"
+  ln -sfn "$dest/bin/nvim" "$BIN_DIR/nvim"
+  ok "installed nvim → $BIN_DIR/nvim"
+}
+
+install_node() {
+  local dest="$OPT_DIR/node"
+  if [[ -L "$BIN_DIR/node" && -x "$dest/bin/node" ]]; then
+    skip "node already installed ($dest)"
+    return
+  fi
+  info "installing node LTS (nodejs.org) — required by coc.nvim"
+  ensure_xz
+  local tmp; tmp="$(mktemp -d)"
+  local version
+  curl -fsSL -o "$tmp/index.json" https://nodejs.org/dist/index.json
+  version="$(sed -n 's/^{"version":"\(v[0-9.]*\)"[^}]*"lts":"[^"]\+".*/\1/p' "$tmp/index.json" | head -n1)"
+  [[ -n "$version" ]] || fail "could not resolve latest node LTS version"
+  local filename="node-${version}-linux-x64.tar.xz"
+  curl -fsSL -o "$tmp/node.tar.xz" "https://nodejs.org/dist/${version}/${filename}"
+  rm -rf "$dest"; mkdir -p "$dest"
+  tar -C "$dest" --strip-components=1 -xJf "$tmp/node.tar.xz"
+  rm -rf "$tmp"
+  for cmd in node npm npx; do
+    ln -sfn "$dest/bin/$cmd" "$BIN_DIR/$cmd"
+  done
+  ok "installed node → $BIN_DIR/node"
+}
+
 # ── Run ─────────────────────────────────────────────────────
 printf "\n%s%s🍧 Ricing %s%s (dotfiles: %s)\n\n" \
   "${BOLD}" "${CYAN}" "${USER:-$(whoami)}" "${RST}" "$DOTFILES_DIR"
@@ -237,6 +292,7 @@ link_file "$DOTFILES_DIR/.zshrc"                         "$HOME/.zshrc"
 link_file "$DOTFILES_DIR/.config/starship.toml"          "$HOME/.config/starship.toml"
 link_file "$DOTFILES_DIR/.config/tmux/tmux.conf"         "$HOME/.config/tmux/tmux.conf"
 link_file "$DOTFILES_DIR/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
+link_file "$DOTFILES_DIR/.config/nvim/init.vim"          "$HOME/.config/nvim/init.vim"
 echo
 
 # 2. System packages (zsh, tmux).
@@ -256,6 +312,8 @@ install_bin bat          install_bat
 install_bin fzf          install_fzf
 install_bin fastfetch    install_fastfetch
 install_bin pay-respects install_pay_respects
+install_neovim                        # pinned to latest github release (apt's is too old)
+install_node                          # coc.nvim needs node ≥ 16
 echo
 
 # 4. Zsh plugins.
@@ -277,7 +335,23 @@ if [[ -x "$TMUX_PLUGIN_DIR/tpm/bin/install_plugins" ]]; then
 fi
 echo
 
-# 6. Verify the symlinks actually point where we expect.
+# 6. Neovim: vim-plug + plugins.
+info "neovim plugins via vim-plug"
+NVIM_PLUG="$HOME/.local/share/nvim/site/autoload/plug.vim"
+if [[ -f "$NVIM_PLUG" ]]; then
+  skip "vim-plug already installed"
+else
+  curl -fsSL --create-dirs -o "$NVIM_PLUG" \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+  ok "installed vim-plug"
+fi
+if command -v nvim >/dev/null 2>&1; then
+  nvim --headless +PlugInstall +qall >/dev/null 2>&1 || warn "PlugInstall reported issues"
+  ok "nvim plugins installed"
+fi
+echo
+
+# 7. Verify the symlinks actually point where we expect.
 info "verifying symlinks"
 verify_link() {
   local dst="$1" want="$2"
@@ -291,6 +365,7 @@ verify_link "$HOME/.zshrc"                         "$DOTFILES_DIR/.zshrc"
 verify_link "$HOME/.config/starship.toml"          "$DOTFILES_DIR/.config/starship.toml"
 verify_link "$HOME/.config/tmux/tmux.conf"         "$DOTFILES_DIR/.config/tmux/tmux.conf"
 verify_link "$HOME/.config/fastfetch/config.jsonc" "$DOTFILES_DIR/.config/fastfetch/config.jsonc"
+verify_link "$HOME/.config/nvim/init.vim"          "$DOTFILES_DIR/.config/nvim/init.vim"
 echo
 
 # ── Optional: set zsh as default shell ──────────────────────

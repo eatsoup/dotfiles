@@ -25,6 +25,7 @@ The installer is idempotent — safe to re-run. Existing config files are moved 
 | eza        | `ls` replacement with icons & git status       |
 | bat        | `cat` replacement with syntax highlighting     |
 | fastfetch  | System info greeter on fresh terminals         |
+| neovim     | Editor — vim-plug, gruvbox, coc, fzf, NERDTree |
 
 All user binaries install to `~/.local/bin`. No `sudo` required.
 
@@ -37,7 +38,8 @@ dotfiles/
 └── .config/
     ├── starship.toml
     ├── tmux/tmux.conf
-    └── fastfetch/config.jsonc
+    ├── fastfetch/config.jsonc
+    └── nvim/init.vim
 ```
 
 The repo mirrors `$HOME` — each file symlinks into the same relative path.
@@ -57,6 +59,6 @@ Recommended: [JetBrainsMono Nerd Font](https://www.nerdfonts.com/font-downloads)
 Remove the symlinks and restore backups:
 
 ```sh
-rm ~/.zshrc ~/.config/starship.toml ~/.config/tmux/tmux.conf ~/.config/fastfetch/config.jsonc
+rm ~/.zshrc ~/.config/starship.toml ~/.config/tmux/tmux.conf ~/.config/fastfetch/config.jsonc ~/.config/nvim/init.vim
 # then restore whatever you want from ~/.dotfiles-backup/<timestamp>/
 ```
