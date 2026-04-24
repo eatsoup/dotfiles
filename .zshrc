@@ -7,6 +7,7 @@ export DOTFILES_DIR=$HOME/git/dotfiles
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.deno/bin:$PATH"
 export PATH="$PATH:/usr/local/go/bin"
+export PATH="$PATH:$HOME/.local/opt/node/bin"
 
 # ── Environment ─────────────────────────────────────────────
 export EDITOR="${EDITOR:-vim}"
