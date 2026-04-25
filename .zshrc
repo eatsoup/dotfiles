@@ -98,7 +98,7 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 
 # ── zoxide ──────────────────────────────────────────────────
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh --cmd cd)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh --cmd j)"
 
 # ── direnv ──────────────────────────────────────────────────
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
@@ -142,8 +142,6 @@ fi
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-[[ -s $HOME/.autojump/etc/profile.d/autojump.sh ]] && source $HOME/.autojump/etc/profile.d/autojump.sh
 
 autoload -U compinit && compinit -u
 eval "$(direnv hook zsh)"
