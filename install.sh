@@ -99,6 +99,10 @@ ensure_pkg() {
   ok "installed $cmd"
 }
 
+# ── Version helpers ─────────────────────────────────────────
+# Returns 0 (true) if version $1 >= $2  (handles suffixes like "3.3a")
+version_gte() { printf '%s\n%s\n' "$2" "$1" | sort -V -C; }
+
 # ── Helpers ─────────────────────────────────────────────────
 gh_latest_tag() {
   # $1 = owner/repo
@@ -227,6 +231,66 @@ install_fastfetch() {
   install -m 0755 fastfetch-linux-amd64/usr/bin/fastfetch "$BIN_DIR/fastfetch"
 }
 
+# ── Tmux installer (version-aware) ──────────────────────────
+# tmux-floax uses popup-border-lines/popup-border-style, which require tmux >= 3.3
+MIN_TMUX_VERSION="3.3"
+
+install_tmux_from_source() {
+  info "building tmux from source (package manager version < $MIN_TMUX_VERSION)"
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get install -y autoconf automake pkg-config gcc make \
+      libevent-dev libncurses-dev bison >/dev/null 2>&1
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y autoconf automake pkgconfig gcc make \
+      libevent-devel ncurses-devel bison >/dev/null 2>&1
+  elif command -v pacman >/dev/null 2>&1; then
+    $SUDO pacman -S --noconfirm base-devel libevent ncurses >/dev/null 2>&1
+  elif command -v apk >/dev/null 2>&1; then
+    $SUDO apk add build-base autoconf automake libevent-dev ncurses-dev bison >/dev/null 2>&1
+  else
+    fail "cannot install tmux build deps — no supported package manager"
+  fi
+  local tag; tag="$(gh_latest_tag tmux/tmux)"
+  local vn="${tag#v}"
+  local tmp; tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/tmux.tar.gz" \
+    "https://github.com/tmux/tmux/releases/download/${tag}/tmux-${vn}.tar.gz"
+  tar -C "$tmp" -xzf "$tmp/tmux.tar.gz"
+  ( cd "$tmp/tmux-${vn}" && \
+    ./configure --prefix="$HOME/.local" >/dev/null 2>&1 && \
+    make -j"$(nproc)" >/dev/null 2>&1 && \
+    make install >/dev/null 2>&1 )
+  rm -rf "$tmp"
+}
+
+ensure_tmux() {
+  local cur=""
+  if command -v tmux >/dev/null 2>&1; then
+    cur="$(tmux -V | cut -d' ' -f2)"
+    if version_gte "$cur" "$MIN_TMUX_VERSION"; then
+      skip "tmux $cur already installed (>= $MIN_TMUX_VERSION)"
+      return
+    fi
+    warn "tmux $cur is too old (need >= $MIN_TMUX_VERSION) — upgrading"
+  fi
+
+  pkg_install tmux
+  if command -v tmux >/dev/null 2>&1; then
+    cur="$(tmux -V | cut -d' ' -f2)"
+    if version_gte "$cur" "$MIN_TMUX_VERSION"; then
+      ok "tmux $cur installed"
+      return
+    fi
+    warn "package manager provided tmux $cur (< $MIN_TMUX_VERSION) — building from source"
+  fi
+
+  install_tmux_from_source
+  cur="$(tmux -V | cut -d' ' -f2)"
+  version_gte "$cur" "$MIN_TMUX_VERSION" \
+    || fail "tmux $cur still < $MIN_TMUX_VERSION after source build"
+  ok "tmux $cur built from source"
+}
+
 # ── Tree-style installers (multi-file tools: $OPT_DIR/$name + symlinks) ─────
 # install_bin assumes a single extracted binary — neovim and node ship full
 # trees (bin/, lib/, share/), so these manage extraction and symlinks directly.
@@ -298,7 +362,7 @@ echo
 # 2. System packages (zsh, tmux).
 info "system packages"
 ensure_pkg zsh
-ensure_pkg tmux
+ensure_tmux
 ensure_pkg direnv
 ensure_pkg zstd            # pay-respects ships .tar.zst archives
 echo
