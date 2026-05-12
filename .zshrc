@@ -10,7 +10,7 @@ export PATH="$PATH:/usr/local/go/bin"
 export PATH="$PATH:$HOME/.local/opt/node/bin"
 
 # ── Environment ─────────────────────────────────────────────
-export EDITOR="${EDITOR:-vim}"
+export EDITOR="${EDITOR:-nvim}"
 export VISUAL="$EDITOR"
 export LESS="-R --use-color"
 export MANPAGER="less -R --use-color -Dd+r -Du+b"
@@ -41,6 +41,11 @@ setopt INTERACTIVE_COMMENTS
 setopt PROMPT_SUBST
 setopt NO_BEEP
 setopt NOTIFY
+
+# Edit command with vim
+autoload -U edit-command-line
+zle -N edit-command-line
+bindkey '' edit-command-line
 
 # ── Completions ─────────────────────────────────────────────
 fpath=("$HOME/.zsh/plugins/zsh-completions/src" $fpath)
@@ -103,15 +108,16 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh --cmd j)"
 # ── direnv ──────────────────────────────────────────────────
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
 
-# ── Aliases ─────────────────────────────────────────────────
+# ── eza with muscle memory ──────────────────────────────────
 if command -v eza >/dev/null 2>&1; then
-  alias ls='eza --icons --group-directories-first --color=always'
-  alias l='eza --icons --group-directories-first --color=always -lah --git'
-  alias ll='eza --icons --group-directories-first --color=always -lh --git'
-  alias la='eza --icons --group-directories-first --color=always -lah --git'
-  alias lt='eza --icons --color=always --tree --level=2'
-  alias ltr='eza --icons --color=always --tree'
+    function ls() {
+       case $* in
+           -larth* ) shift 1; command eza -lah --git --time-style=long-iso --sort=modified "$@" ;;
+           * ) command eza "$@" ;;
+       esac
+    }
 fi
+# ── Aliases ─────────────────────────────────────────────────
 command -v bat >/dev/null 2>&1 && alias cat='bat --paging=never --style=plain' && alias catp='bat'
 alias python='python3'
 alias grep='grep --color=auto'
